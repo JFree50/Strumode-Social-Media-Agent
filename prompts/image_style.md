@@ -23,12 +23,11 @@ COLOR (restrained, brand accents only):
 
 COMPOSITION:
 - One clear focal idea per image. Simple, uncluttered, phone-legible at a glance.
-- 4:5 portrait framing (the output is cropped to 1080x1350).
 - Leave breathing room; don't fill every corner.
 - The slide's headline is placed in its own cream band ABOVE the art after
-  generation (the art is never covered). Compose the full frame freely with the
-  main subject centered; the frame is later cropped a bit shorter, so keep
-  crucial detail away from the extreme top and bottom edges.
+  generation (the art is never covered). Compose with the main subject fully
+  inside the frame with comfortable margins on ALL sides — heads, feet, and key
+  objects must never touch the frame edge, since a small trim is applied.
 
 HARD CONSTRAINTS (never violate):
 - NEVER photorealistic. No photography, no 3D renders, no glossy vector/corporate-flat art.

@@ -34,9 +34,12 @@ models:
   image_model: "gpt-image-1"
 
 image:
-  # gpt-image-1 only emits 1024x1024 / 1024x1536 / 1536x1024, so we generate
-  # portrait then crop+resize to Instagram's 4:5.
-  gen_size: "1024x1536"
+  # gpt-image-1 only emits 1024x1024 / 1024x1536 / 1536x1024. Story slides get a
+  # headline band on top, leaving a nearly-square art area — so we generate SQUARE
+  # for them (almost zero crop loss; heads stay attached). The Value image is
+  # full-bleed 4:5, so it generates portrait.
+  gen_size_banded: "1024x1024"       # story slides (art sits under the headline band)
+  gen_size_full: "1024x1536"         # value day (art fills the whole 4:5 frame)
   out_width: 1080
   out_height: 1350
   quality: "high"                    # low | medium | high. high ≈ richer art, a few $/week (Jack, 2026-07-07).

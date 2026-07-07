@@ -37,7 +37,9 @@ A short, relatable, **fictional-but-true-to-life** small-business owner story. A
 - This is **storytelling, not a testimonial.** These owners are illustrative, not real clients.
   Never imply "this really happened to a real Strumode customer." Frame as "every owner knows
   this" / "picture this."
-- On-image text per slide: punchy, ≤ ~14 words, reads on a phone in 2 seconds.
+- On-image text per slide: punchy, ≤ 10 words, reads on a phone in 2 seconds.
+  Shorter is better — the headline sits in a fixed-height band, so fewer words
+  render bigger.
 - End the caption with this CTA verbatim: "This could be your week back → link in bio."
 
 ## Value Day (Thursdays) — a single image + a gated giveaway

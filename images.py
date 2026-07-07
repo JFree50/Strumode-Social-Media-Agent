@@ -79,14 +79,16 @@ CREAM = (250, 246, 237)
 def _overlay_text(img: Image.Image, text: str, img_cfg: dict) -> Image.Image:
     """Compose the slide as a card: cream headline band on top, art below.
 
-    The band is its own region ABOVE the picture, so the words never cover the
-    art. Band height adapts to the text (1-3 lines); the art is center-cropped
-    to fill the remaining space. Code never misspells.
+    The band height is FIXED at H - W (270px at 1080x1350), which makes the art
+    area exactly square — so square-generated art fits with ZERO cropping. The
+    font auto-shrinks to fit the band (never the other way around), the words
+    never cover the art, and code never misspells.
     """
     text = " ".join(text.split())
     if not text:
         return img
     W, H = img.size
+    band_h = H - W                       # art area below is exactly W x W (square)
     margin = int(W * 0.07)
     max_w = W - 2 * margin
     navy = _hex_rgb(img_cfg.get("overlay_color", "#1B3A6B"))
@@ -96,34 +98,36 @@ def _overlay_text(img: Image.Image, text: str, img_cfg: dict) -> Image.Image:
     canvas = Image.new("RGB", (W, H), CREAM)
     draw = ImageDraw.Draw(canvas)
 
-    # Largest font size (from H/14 down) that fits the width in <= 3 lines.
-    lines, font = [text], None
-    for size in range(int(H / 14), int(H / 30), -4):
+    pad = int(band_h * 0.14)             # top air
+    rule_room = int(band_h * 0.16)       # gold rule + bottom air
+    text_room = band_h - pad - rule_room
+
+    # Largest font whose wrapped block fits the band's text room in <= 3 lines.
+    lines, font, line_h = [text], None, 0
+    for size in range(int(band_h / 2.2), 17, -3):
         font = (ImageFont.truetype(font_path, size) if font_path
                 else ImageFont.load_default(size=size))
         lines = _wrap(draw, text.split(), font, max_w)
-        if len(lines) <= 3 and all(draw.textlength(l, font=font) <= max_w for l in lines):
+        ascent, descent = font.getmetrics()
+        line_h = int((ascent + descent) * 1.08)
+        if (len(lines) <= 3
+                and line_h * len(lines) <= text_room
+                and all(draw.textlength(l, font=font) <= max_w for l in lines)):
             break
 
-    ascent, descent = font.getmetrics()
-    line_h = int((ascent + descent) * 1.12)
-    pad = int(H * 0.035)
-    band_h = pad + line_h * len(lines) + int(pad * 1.3)   # text + gold rule + air
-
-    # Headline, centered in the band.
-    y = pad
+    # Headline, vertically centered in the text room.
+    y = pad + max(0, (text_room - line_h * len(lines)) // 2)
     for line in lines:
         lw = draw.textlength(line, font=font)
         draw.text(((W - lw) / 2, y), line, font=font, fill=navy)
         y += line_h
     # Gold accent rule separating headline from art.
     ux = (W - int(W * 0.22)) / 2
-    draw.line([ux, y + int(pad * 0.35), W - ux, y + int(pad * 0.35)],
-              fill=gold, width=max(4, int(H * 0.006)))
+    ry = band_h - int(rule_room * 0.55)
+    draw.line([ux, ry, W - ux, ry], fill=gold, width=max(4, int(H * 0.006)))
 
-    # Art fills everything below the band, center-cropped — never covered.
-    art_h = H - band_h
-    canvas.paste(_crop_resize(img, W, art_h), (0, band_h))
+    # Art fills the exact square below the band — zero crop for square art.
+    canvas.paste(_crop_resize(img, W, H - band_h), (0, band_h))
     return canvas
 
 
@@ -152,8 +156,11 @@ def _crop_resize(img: Image.Image, out_w: int, out_h: int) -> Image.Image:
 
 def _generate_one(client: OpenAI, prompt: str, out_path, img_cfg: dict,
                   overlay: str = "") -> None:
+    # Banded slides get square art (the area under the band is ~square, so the
+    # crop loses almost nothing); full-bleed images generate portrait.
+    size = img_cfg["gen_size_banded"] if overlay else img_cfg["gen_size_full"]
     kwargs = dict(model=img_cfg["image_model"], prompt=prompt,
-                  size=img_cfg["gen_size"], quality=img_cfg["quality"], n=1)
+                  size=size, quality=img_cfg["quality"], n=1)
     try:
         resp = client.images.generate(output_format="jpeg", **kwargs)
     except TypeError:
@@ -171,7 +178,9 @@ def _generate_one(client: OpenAI, prompt: str, out_path, img_cfg: dict,
 def _img_config() -> dict:
     cfg = common.load_config()
     return {"image_model": cfg["models"]["image_model"],
-            "gen_size": cfg["image"]["gen_size"],
+            "gen_size_banded": cfg["image"].get("gen_size_banded", "1024x1024"),
+            "gen_size_full": cfg["image"].get("gen_size_full",
+                                              cfg["image"].get("gen_size", "1024x1536")),
             "quality": cfg["image"]["quality"],
             "out_width": cfg["image"]["out_width"],
             "out_height": cfg["image"]["out_height"],
