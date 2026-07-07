@@ -55,10 +55,15 @@ def generate_story(post_date: str, system: str, perf: str) -> str:
                                   common.load_config()["models"]["content_max_tokens"])
     slides = [{"text": s["on_image_text"], "image_prompt": s["image_prompt"]}
               for s in data["slides"]]
+    # Self-heal alt-text count: the model occasionally returns one too few/many.
+    # Pad missing entries from the slide's own on-image text; trim extras.
+    alt_texts = list(data.get("alt_texts") or [])[: len(slides)]
+    while len(alt_texts) < len(slides):
+        alt_texts.append(f"Sketch illustration: {slides[len(alt_texts)]['text']}")
     caption = _ensure_suffix(data["caption"], cfg["story_cta"])
     fm = _base_frontmatter("story", post_date, "carousel")
     md = common.render_story_markdown(fm, data["hook"], slides, caption,
-                                      _clamp_hashtags(data["hashtags"]), data["alt_texts"])
+                                      _clamp_hashtags(data["hashtags"]), alt_texts)
     path = common.QUEUE_DIR / common.draft_filename(post_date, "story")
     path.write_text(md, encoding="utf-8")
     return str(path)
