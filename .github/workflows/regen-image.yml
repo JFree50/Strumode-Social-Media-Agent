@@ -45,18 +45,16 @@ jobs:
         run: |
           IMG="${{ github.event.inputs.image }}"
           IMG_PATH="content/queue/$IMG"
-          if [ ! -f "$IMG_PATH" ]; then
-            echo "::error::$IMG_PATH not found on this branch — check the filename and branch."
-            exit 1
-          fi
           # Derive the owning draft: 2026-07-14_story_03.jpg -> 2026-07-14_story.md
           BASE="$(echo "${IMG%.jpg}" | sed -E 's/_[0-9]+$//')"
           DRAFT="content/queue/${BASE}.md"
           if [ ! -f "$DRAFT" ]; then
-            echo "::error::Draft $DRAFT not found for image $IMG."
+            echo "::error::Draft $DRAFT not found for image $IMG — check the filename and branch."
             exit 1
           fi
-          rm "$IMG_PATH"
+          # If the image exists it's a re-do (delete first); if missing, this
+          # run fills the gap — either way only absent images get generated.
+          [ -f "$IMG_PATH" ] && rm "$IMG_PATH" || echo "$IMG missing — filling it."
           python images.py "$DRAFT"   # idempotent: only the deleted image is regenerated
           if [ ! -f "$IMG_PATH" ]; then
             echo "::error::Regeneration did not produce $IMG_PATH — see log above."

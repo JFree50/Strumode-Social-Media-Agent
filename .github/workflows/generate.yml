@@ -30,14 +30,22 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Draft posts + generate images
+      - name: Draft posts
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AGENT_PAUSED: ${{ vars.AGENT_PAUSED }}
+        run: python generate.py
+
+      # continue-on-error so already-paid-for images are still committed to a
+      # PR even if a later image fails (billing limit, API hiccup). The final
+      # step re-fails the run so the failure is still loud.
+      - name: Generate images
+        id: images
+        continue-on-error: true
+        env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           AGENT_PAUSED: ${{ vars.AGENT_PAUSED }}
-        run: |
-          python generate.py
-          python images.py
+        run: python images.py
 
       - name: Open review PR if drafts were created
         env:
@@ -52,9 +60,19 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add content/queue
+          if [ "${{ steps.images.outcome }}" = "failure" ]; then
+            TITLE="Weekly IG drafts — INCOMPLETE (image generation failed partway)"
+            BODY="Some images are missing (see the failed run log — often billing). Fix the cause, then run the **Regenerate one image** workflow for each missing file (it fills gaps without re-buying existing images). **Do not merge until every slide has its image.**"
+          else
+            TITLE="Weekly IG drafts — review & merge to approve"
+            BODY="Auto-generated Story Day + Value Day posts with images. **Merging this PR is the approval to publish.** Edit any text (the caption/hashtags/prompt payload) or images in this branch before merging. Nothing publishes until merged to \`main\`."
+          fi
           git commit -m "Weekly IG drafts (auto-generated) — review before merge"
           git push origin "$BRANCH"
-          gh pr create \
-            --title "Weekly IG drafts — review & merge to approve" \
-            --body  "Auto-generated Story Day + Value Day posts with images. **Merging this PR is the approval to publish.** Edit any text (the caption/hashtags/prompt payload) or images in this branch before merging. Nothing publishes until merged to \`main\`." \
-            --base main --head "$BRANCH"
+          gh pr create --title "$TITLE" --body "$BODY" --base main --head "$BRANCH"
+
+      - name: Fail loudly if image generation failed
+        if: steps.images.outcome == 'failure'
+        run: |
+          echo "::error::Image generation failed — the PR was still opened with whatever finished, so nothing paid-for was lost. Fill missing images with the 'Regenerate one image' workflow after fixing the cause."
+          exit 1
