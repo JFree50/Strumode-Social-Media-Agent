@@ -270,15 +270,20 @@ def parse_draft(path: Path) -> dict:
     text = path.read_text(encoding="utf-8")
     fm, body = _parse_frontmatter(text)
     sections = _split_sections(body)
+    # YAML coerces bare values: a date-like post_date becomes a date, a numeric
+    # media_id (real IG ids are 17–19 digit ints) becomes an int, a timestamp
+    # becomes a datetime. Coerce every front-matter field back to a clean string.
+    def _s(v) -> str:
+        return "" if v is None else str(v).strip()
     post = {
         "path": path,
-        "type": (fm.get("type") or "").strip(),
-        "post_date": str(fm.get("post_date") or "").strip(),
-        "media_type": (fm.get("media_type") or "").strip(),
-        "status": (fm.get("status") or "").strip(),
-        "style_override": (fm.get("style_override") or "").strip(),
-        "media_id": (fm.get("media_id") or "").strip(),
-        "published_at": (fm.get("published_at") or "").strip(),
+        "type": _s(fm.get("type")),
+        "post_date": _s(fm.get("post_date")),
+        "media_type": _s(fm.get("media_type")),
+        "status": _s(fm.get("status")),
+        "style_override": _s(fm.get("style_override")),
+        "media_id": _s(fm.get("media_id")),
+        "published_at": _s(fm.get("published_at")),
         "hashtags": sections.get("Hashtags", "").split(),
         "alt_texts": _parse_alt(sections.get("Alt text", "")),
         "_frontmatter": fm,

@@ -132,6 +132,26 @@ def test_ci_plan() -> None:
         os.environ.pop(k, None)
 
 
+def test_published_move_roundtrip() -> None:
+    # YAML coerces a numeric media_id to int and a timestamp to datetime; parse_draft
+    # must coerce them back to strings, or insights.py chokes reading published posts.
+    d = "2031-03-03"
+    md = _sample_story(d)
+    updated = common.update_frontmatter_text(
+        md, {"status": "published", "media_id": "17851234567890123",
+             "published_at": "2031-03-03T11:00:00"})
+    tmp = common.QUEUE_DIR / "____tmp_published.md"
+    common.QUEUE_DIR.mkdir(parents=True, exist_ok=True)
+    tmp.write_text(updated, encoding="utf-8")
+    try:
+        post = common.parse_draft(tmp)
+        check("published media_id survives as string", post["media_id"] == "17851234567890123")
+        check("published status parsed", post["status"] == "published")
+        check("published post still validates", common.validate_draft(post) == [], str(common.validate_draft(post)))
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def test_publish_dry_run() -> None:
     d = "2030-02-02"
     draft = common.QUEUE_DIR / common.draft_filename(d, "story")
@@ -159,7 +179,8 @@ def test_publish_dry_run() -> None:
 def main() -> int:
     print("Strumode IG Agent — offline self-test\n")
     for fn in [test_dates, test_time_guard, test_render_parse_validate, test_image_crop,
-               test_compose_prompt, test_system_prompt, test_ci_plan, test_publish_dry_run]:
+               test_compose_prompt, test_system_prompt, test_ci_plan,
+               test_published_move_roundtrip, test_publish_dry_run]:
         print(f"{fn.__name__}:")
         fn()
     print()
