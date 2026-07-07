@@ -1,0 +1,72 @@
+name: Regenerate one image
+
+# Jack's fix-one-picture button. Use when a single image in a review PR is wrong:
+#  1. (Optional) Edit that slide's "Image prompt" line in the draft .md on the PR branch.
+#  2. Actions → "Regenerate one image" → Run workflow:
+#       - branch: the PR's branch name (shown at the top of the PR, e.g. drafts/20260707-165000)
+#       - image:  the filename to redo, e.g. 2026-07-14_story_03.jpg
+#  3. The old image is deleted, regenerated from the (edited) prompt, and pushed
+#     back to the same branch — the PR updates automatically. Costs ~1 image.
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "PR branch name (e.g. drafts/20260707-165000)"
+        required: true
+      image:
+        description: "Image filename in content/queue/ (e.g. 2026-07-14_story_03.jpg)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: regen-image
+  cancel-in-progress: false
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Delete old image and regenerate from the draft's prompt
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          IMG="${{ github.event.inputs.image }}"
+          IMG_PATH="content/queue/$IMG"
+          if [ ! -f "$IMG_PATH" ]; then
+            echo "::error::$IMG_PATH not found on this branch — check the filename and branch."
+            exit 1
+          fi
+          # Derive the owning draft: 2026-07-14_story_03.jpg -> 2026-07-14_story.md
+          BASE="$(echo "${IMG%.jpg}" | sed -E 's/_[0-9]+$//')"
+          DRAFT="content/queue/${BASE}.md"
+          if [ ! -f "$DRAFT" ]; then
+            echo "::error::Draft $DRAFT not found for image $IMG."
+            exit 1
+          fi
+          rm "$IMG_PATH"
+          python images.py "$DRAFT"   # idempotent: only the deleted image is regenerated
+          if [ ! -f "$IMG_PATH" ]; then
+            echo "::error::Regeneration did not produce $IMG_PATH — see log above."
+            exit 1
+          fi
+
+      - name: Push the refreshed image back to the PR branch
+        run: |
+          git config user.name  "strumode-ig-agent"
+          git config user.email "actions@users.noreply.github.com"
+          git add content/queue
+          git commit -m "Regenerate ${{ github.event.inputs.image }} (manual fix)"
+          git push origin "${{ github.event.inputs.branch }}"
