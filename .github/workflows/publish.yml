@@ -1,0 +1,101 @@
+name: Publish post
+
+# Tuesday (Story) + Thursday (Value) 11am America/Chicago. Both candidate UTC
+# hours fire; the Python time-guard (via ci_plan.py) lets only the 11am-CT run
+# proceed. Manual runs bypass the guard and take the inputs below.
+on:
+  schedule:
+    - cron: "0 16 * * 2"
+    - cron: "0 17 * * 2"
+    - cron: "0 16 * * 4"
+    - cron: "0 17 * * 4"
+  workflow_dispatch:
+    inputs:
+      post_type:
+        description: "story or value"
+        required: false
+        type: choice
+        options: ["story", "value"]
+      post_date:
+        description: "YYYY-MM-DD (defaults to today, Central)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Plan this run
+        id: plan
+        env:
+          INPUT_POST_TYPE: ${{ github.event.inputs.post_type }}
+          INPUT_POST_DATE: ${{ github.event.inputs.post_date }}
+        run: python ci_plan.py >> "$GITHUB_OUTPUT"
+
+      # Only push images public when we're actually going live (enable_publish).
+      # Instagram must be able to fetch the image_url when we create the container.
+      - name: Check out public assets repo
+        if: steps.plan.outputs.proceed == 'true' && steps.plan.outputs.have_draft == 'true' && steps.plan.outputs.enable_publish == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.plan.outputs.assets_repo }}
+          ref: ${{ steps.plan.outputs.assets_branch }}
+          token: ${{ secrets.GH_PAT }}
+          path: assets_repo
+
+      - name: Push approved images to assets repo
+        if: steps.plan.outputs.proceed == 'true' && steps.plan.outputs.have_draft == 'true' && steps.plan.outputs.enable_publish == 'true'
+        run: |
+          T="${{ steps.plan.outputs.post_type }}"
+          D="${{ steps.plan.outputs.post_date }}"
+          DEST="assets_repo/${D}_${T}"
+          mkdir -p "$DEST"
+          cp content/queue/${D}_${T}*.jpg "$DEST"/
+          cd assets_repo
+          git config user.name  "strumode-ig-agent"
+          git config user.email "actions@users.noreply.github.com"
+          git add "${D}_${T}"
+          if git diff --cached --quiet; then
+            echo "Images already present in assets repo."
+          else
+            git commit -m "Assets for ${D} ${T}"
+            git push
+          fi
+
+      - name: Publish (or dry-run)
+        if: steps.plan.outputs.proceed == 'true' && steps.plan.outputs.have_draft == 'true'
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          AGENT_PAUSED: ${{ vars.AGENT_PAUSED }}
+        run: python publish.py "${{ steps.plan.outputs.post_type }}" "${{ steps.plan.outputs.post_date }}"
+
+      # A live publish moves the post from queue/ to published/ with its media_id.
+      - name: Record published post
+        if: steps.plan.outputs.proceed == 'true' && steps.plan.outputs.enable_publish == 'true'
+        run: |
+          if [ -z "$(git status --porcelain content)" ]; then
+            echo "No content changes to record (dry-run or nothing published)."
+            exit 0
+          fi
+          git config user.name  "strumode-ig-agent"
+          git config user.email "actions@users.noreply.github.com"
+          git add content
+          git commit -m "Published ${{ steps.plan.outputs.post_date }} ${{ steps.plan.outputs.post_type }}"
+          git push origin HEAD:${{ github.ref_name }}

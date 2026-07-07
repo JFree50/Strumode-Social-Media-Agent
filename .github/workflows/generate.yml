@@ -1,0 +1,60 @@
+name: Generate weekly posts
+
+# Friday 9am America/Chicago. GitHub cron is UTC and can't express a timezone,
+# so we fire at BOTH candidate UTC hours (CST 15:00, CDT 14:00) and the Python
+# time-guard lets only the 9am-Central run proceed; the other exits cleanly.
+on:
+  schedule:
+    - cron: "0 14 * * 5"
+    - cron: "0 15 * * 5"
+  workflow_dispatch: {}   # manual run bypasses the time-guard (FORCE via event name)
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: generate
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Draft posts + generate images
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AGENT_PAUSED: ${{ vars.AGENT_PAUSED }}
+        run: |
+          python generate.py
+          python images.py
+
+      - name: Open review PR if drafts were created
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$(git status --porcelain content/queue)" ]; then
+            echo "No new drafts (off-hour run or paused) — nothing to review."
+            exit 0
+          fi
+          BRANCH="drafts/$(date -u +%Y%m%d-%H%M%S)"
+          git config user.name  "strumode-ig-agent"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add content/queue
+          git commit -m "Weekly IG drafts (auto-generated) — review before merge"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "Weekly IG drafts — review & merge to approve" \
+            --body  "Auto-generated Story Day + Value Day posts with images. **Merging this PR is the approval to publish.** Edit any text (the caption/hashtags/prompt payload) or images in this branch before merging. Nothing publishes until merged to \`main\`." \
+            --base main --head "$BRANCH"

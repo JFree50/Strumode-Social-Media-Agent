@@ -1,0 +1,47 @@
+name: Weekly insights
+
+# Monday 8am America/Chicago (both candidate UTC hours; Python time-guard picks one).
+on:
+  schedule:
+    - cron: "0 13 * * 1"
+    - cron: "0 14 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: insights
+  cancel-in-progress: false
+
+jobs:
+  insights:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull metrics + write report
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          AGENT_PAUSED: ${{ vars.AGENT_PAUSED }}
+        run: python insights.py
+
+      - name: Commit metrics + report
+        run: |
+          if [ -z "$(git status --porcelain data)" ]; then
+            echo "No metrics changes."
+            exit 0
+          fi
+          git config user.name  "strumode-ig-agent"
+          git config user.email "actions@users.noreply.github.com"
+          git add data
+          git commit -m "Weekly metrics + report ($(TZ=America/Chicago date +%Y-%m-%d))"
+          git push origin HEAD:${{ github.ref_name }}

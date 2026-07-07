@@ -1,0 +1,65 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Strumode IG Agent — NON-SECRET configuration.
+# Edit this file to change behaviour. Secrets are NEVER stored here (env only).
+# Jack owns the switches marked ⚑.
+# ─────────────────────────────────────────────────────────────────────────────
+
+account:
+  handle: strumode
+  timezone: America/Chicago          # all posting times are wall-clock in this zone
+  # IG_USER_ID normally comes from the env/secret; this is an optional fallback.
+  ig_user_id_fallback: ""
+
+# ⚑ MASTER SWITCHES ───────────────────────────────────────────────────────────
+paused: false                        # true = every workflow exits immediately (full stop)
+publishing:
+  enable_publish: false              # ⚑ false = DRY RUN (build + log payload, never call IG).
+                                     #   Stays false until the seed grid is up. Flip only with Jack.
+  assets_repo: "REPLACE_ME/strumode-ig-assets"   # public repo that hosts image URLs for IG
+  assets_branch: main
+  poll_timeout_seconds: 180          # max wait for a media container to reach FINISHED
+  poll_interval_seconds: 5
+
+# Weekly cadence (informational — the real cron is in .github/workflows/*.yml,
+# which is UTC and DST-guarded to hit these exact Central times) ──────────────
+schedule:
+  generate:      { weekday: Friday,   hour: 9,  note: "draft next week's 2 posts -> PR" }
+  publish_story: { weekday: Tuesday,  hour: 11, note: "publish the merged Story Day post" }
+  publish_value: { weekday: Thursday, hour: 11, note: "publish the merged Value Day post" }
+  insights:      { weekday: Monday,   hour: 8,  note: "pull metrics -> weekly_report.md" }
+
+models:
+  content_model: "claude-sonnet-5"   # brief says "Sonnet is fine"; keeps cost at cents/week
+  content_max_tokens: 4000
+  image_model: "gpt-image-1"
+
+image:
+  # gpt-image-1 only emits 1024x1024 / 1024x1536 / 1536x1024, so we generate
+  # portrait then crop+resize to Instagram's 4:5.
+  gen_size: "1024x1536"
+  out_width: 1080
+  out_height: 1350
+  quality: "medium"                  # low | medium | high. medium ≈ ~$1/week of images; high is richer.
+  format: "jpeg"                     # Instagram publishing accepts JPEG only
+
+content:
+  story_day: Tuesday
+  value_day: Thursday
+  story_slides_min: 6
+  story_slides_max: 8
+  value_cta: "Comment PROMPT and it's in your DMs"   # every Value Day caption must end with this
+  hashtags_min: 8
+  hashtags_max: 15
+  story_cta: "This could be your week back → link in bio."
+  # Approved proof — the ONLY real-client claims allowed in generated copy.
+  approved_proof:
+    - "Lauderdale Studio — a 1-person AEC firm running 10–20 projects/mo with $0 admin staff on the Strumode system."
+    - "Strumode automates ~90% of a small business's admin."
+
+brand:
+  navy: "#1B3A6B"
+  deep_navy: "#002452"
+  gold: "#C8A24B"
+  electric_blue: "#2E8BFF"
+  site: "strumode.com"
+  booking: "https://cal.com/strumode/free-business-audit-call"

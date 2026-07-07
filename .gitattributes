@@ -1,0 +1,7 @@
+# Store text as LF in the repo so workflow bash steps run correctly on Linux
+# runners regardless of the OS this was authored on.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ai binary

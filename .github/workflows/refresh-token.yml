@@ -1,0 +1,46 @@
+name: Refresh Instagram token
+
+# 1st of each month, 12:00 UTC. Long-lived Instagram tokens last 60 days; monthly
+# refresh keeps ours alive with wide margin. Not time-zone sensitive.
+on:
+  schedule:
+    - cron: "0 12 1 * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-token
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Refresh token
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          AGENT_PAUSED: ${{ vars.AGENT_PAUSED }}
+        run: python refresh_token.py   # writes new_token.txt; fails LOUDLY on error
+
+      - name: Store new token as a secret
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}   # GITHUB_TOKEN cannot write secrets; PAT with Secrets:R/W required
+        run: |
+          if [ ! -s new_token.txt ]; then
+            echo "::error::new_token.txt is missing/empty — token was NOT refreshed. See the refresh step logs for manual steps."
+            exit 1
+          fi
+          gh secret set IG_ACCESS_TOKEN --body "$(cat new_token.txt)" --repo "${{ github.repository }}"
+          rm -f new_token.txt
+          echo "IG_ACCESS_TOKEN secret updated."

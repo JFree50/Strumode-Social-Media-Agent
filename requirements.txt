@@ -1,0 +1,8 @@
+# Strumode Instagram Engagement Agent — runtime dependencies
+# Pinned loosely; GitHub Actions installs these before each job.
+anthropic>=0.69            # Claude API (content generation)
+openai>=1.50               # OpenAI Images API (gpt-image-1 visuals)
+Pillow>=10.0               # crop/resize/convert generated images to JPEG 1080x1350
+requests>=2.31             # Instagram Graph API (publish, insights, token refresh)
+PyYAML>=6.0                # config.yaml + draft front-matter
+tzdata>=2024.1             # America/Chicago DST-aware cron guard (needed on Windows)
