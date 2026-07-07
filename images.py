@@ -73,8 +73,16 @@ def _wrap(draw: ImageDraw.ImageDraw, words: list[str], font, max_w: int) -> list
     return lines
 
 
+CREAM = (250, 246, 237)
+
+
 def _overlay_text(img: Image.Image, text: str, img_cfg: dict) -> Image.Image:
-    """Stamp the slide's exact text onto the top of the image. Code never misspells."""
+    """Compose the slide as a card: cream headline band on top, art below.
+
+    The band is its own region ABOVE the picture, so the words never cover the
+    art. Band height adapts to the text (1-3 lines); the art is center-cropped
+    to fill the remaining space. Code never misspells.
+    """
     text = " ".join(text.split())
     if not text:
         return img
@@ -85,42 +93,38 @@ def _overlay_text(img: Image.Image, text: str, img_cfg: dict) -> Image.Image:
     gold = _hex_rgb(img_cfg.get("overlay_accent", "#C8A24B"))
     font_path = _ensure_font()
 
-    base = img.convert("RGBA")
-    layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(layer)
+    canvas = Image.new("RGB", (W, H), CREAM)
+    draw = ImageDraw.Draw(canvas)
 
-    # Largest font size (from H/9 down) that fits the width in <= 4 lines.
+    # Largest font size (from H/14 down) that fits the width in <= 3 lines.
     lines, font = [text], None
-    for size in range(int(H / 9), int(H / 26), -4):
+    for size in range(int(H / 14), int(H / 30), -4):
         font = (ImageFont.truetype(font_path, size) if font_path
                 else ImageFont.load_default(size=size))
         lines = _wrap(draw, text.split(), font, max_w)
-        if len(lines) <= 4 and all(draw.textlength(l, font=font) <= max_w for l in lines):
+        if len(lines) <= 3 and all(draw.textlength(l, font=font) <= max_w for l in lines):
             break
 
     ascent, descent = font.getmetrics()
     line_h = int((ascent + descent) * 1.12)
-    block_h = line_h * len(lines)
-    pad = int(W * 0.035)
-    top = margin
+    pad = int(H * 0.035)
+    band_h = pad + line_h * len(lines) + int(pad * 1.3)   # text + gold rule + air
 
-    # Soft cream "paper" panel behind the words so they read over any art.
-    draw.rounded_rectangle(
-        [margin - pad, top - pad, W - margin + pad, top + block_h + pad],
-        radius=int(pad * 1.2), fill=(250, 246, 237, 225),
-        outline=navy + (90,), width=3)
-
-    y = top
+    # Headline, centered in the band.
+    y = pad
     for line in lines:
         lw = draw.textlength(line, font=font)
-        draw.text(((W - lw) / 2, y), line, font=font, fill=navy + (255,))
+        draw.text(((W - lw) / 2, y), line, font=font, fill=navy)
         y += line_h
-    # Gold accent underline beneath the block — the brand's spark.
-    ux = (W - min(int(W * 0.22), max_w)) / 2
-    draw.line([ux, y + int(pad * 0.4), W - ux, y + int(pad * 0.4)],
-              fill=gold + (255,), width=max(4, int(H * 0.006)))
+    # Gold accent rule separating headline from art.
+    ux = (W - int(W * 0.22)) / 2
+    draw.line([ux, y + int(pad * 0.35), W - ux, y + int(pad * 0.35)],
+              fill=gold, width=max(4, int(H * 0.006)))
 
-    return Image.alpha_composite(base, layer).convert("RGB")
+    # Art fills everything below the band, center-cropped — never covered.
+    art_h = H - band_h
+    canvas.paste(_crop_resize(img, W, art_h), (0, band_h))
+    return canvas
 
 
 def _style_block() -> str:

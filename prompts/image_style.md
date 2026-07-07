@@ -25,9 +25,10 @@ COMPOSITION:
 - One clear focal idea per image. Simple, uncluttered, phone-legible at a glance.
 - 4:5 portrait framing (the output is cropped to 1080x1350).
 - Leave breathing room; don't fill every corner.
-- Keep the TOP THIRD of the frame calm and mostly open (paper, negative space) —
-  the slide's headline is stamped there programmatically after generation, so
-  the art must not compete with it. Main subject sits in the lower two-thirds.
+- The slide's headline is placed in its own cream band ABOVE the art after
+  generation (the art is never covered). Compose the full frame freely with the
+  main subject centered; the frame is later cropped a bit shorter, so keep
+  crucial detail away from the extreme top and bottom edges.
 
 HARD CONSTRAINTS (never violate):
 - NEVER photorealistic. No photography, no 3D renders, no glossy vector/corporate-flat art.
