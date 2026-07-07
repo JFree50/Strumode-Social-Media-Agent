@@ -65,7 +65,11 @@ If no data is given, write a strong general post for the ideal reader.
   follow-for-follow tags.
 - Write image PROMPTS as **subject/scene descriptions only** — describe WHAT is in the picture,
   not the art style. The house sketch style is applied separately and automatically. Do not
-  request photorealism, real logos, real people, or text-heavy images.
+  request photorealism, real logos, or real people.
+- Image prompts must describe a **completely wordless scene** — never put the slide's words
+  (or ANY text, letters, or numbers) into an image prompt. Each slide's "On-image text" is
+  stamped onto the top of the finished art by code afterward, with exact spelling. Compose
+  the scene's main subject in the lower two-thirds of the frame.
 - Alt text: one plain-language sentence per image describing what's shown, for accessibility.
 
 Return your answer only through the provided tool, matching its schema exactly.

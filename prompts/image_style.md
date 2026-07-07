@@ -25,12 +25,16 @@ COMPOSITION:
 - One clear focal idea per image. Simple, uncluttered, phone-legible at a glance.
 - 4:5 portrait framing (the output is cropped to 1080x1350).
 - Leave breathing room; don't fill every corner.
+- Keep the TOP THIRD of the frame calm and mostly open (paper, negative space) —
+  the slide's headline is stamped there programmatically after generation, so
+  the art must not compete with it. Main subject sits in the lower two-thirds.
 
 HARD CONSTRAINTS (never violate):
 - NEVER photorealistic. No photography, no 3D renders, no glossy vector/corporate-flat art.
 - No real brand logos, no real people or likenesses, no trademarked characters.
-- Minimal or no lettering. If a tiny hand-lettered label is unavoidable, keep it short and
-  spelled simply — do not rely on the image to render paragraphs of text.
+- ABSOLUTELY NO text of any kind: no words, letters, numbers, labels, signage, or
+  lettering anywhere in the image. All wording is added programmatically after
+  generation (guaranteed spelling) — the art must be completely wordless.
 - Nothing offensive, political, or off-brand.
 
 END OF STYLE BLOCK.

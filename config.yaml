@@ -39,8 +39,14 @@ image:
   gen_size: "1024x1536"
   out_width: 1080
   out_height: 1350
-  quality: "medium"                  # low | medium | high. medium ≈ ~$1/week of images; high is richer.
+  quality: "high"                    # low | medium | high. high ≈ richer art, a few $/week (Jack, 2026-07-07).
   format: "jpeg"                     # Instagram publishing accepts JPEG only
+  # ⚑ Code-stamped text: slide words are overlaid by images.py (never drawn by
+  # the model), so spelling is always exact. Font: Patrick Hand (OFL), cached
+  # in assets/fonts/ (auto-downloaded on first run).
+  overlay_text: true
+  overlay_color: "#1B3A6B"           # headline ink (brand navy)
+  overlay_accent: "#C8A24B"          # underline spark (brand gold)
 
 content:
   story_day: Tuesday
