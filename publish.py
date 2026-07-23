@@ -26,6 +26,7 @@ import sys
 
 import common
 from ig_client import IGClient
+from manychat_client import ManyChatClient, ManyChatError
 
 log = common.get_logger("publish")
 
@@ -69,6 +70,27 @@ def _move_to_published(post: dict, media_id: str) -> None:
     post["path"].unlink()
     log.info("Moved %s + %d image(s) to content/published/.",
              post["path"].name, len(post["image_files"]))
+
+
+def _sync_manychat(post: dict, pub: dict, live: bool) -> None:
+    """Push the Value Day prompt payload into a ManyChat Bot Field so the DM
+    flows (owned entirely in ManyChat) can reference it as {{field_name}}
+    instead of Jack pasting it in by hand each week. Only runs for 'value'
+    posts, and only if publishing.manychat_sync is true in config.yaml. A
+    failure here does NOT unpublish or roll back the Instagram post — the IG
+    post is the thing that must never silently disappear — but it DOES make
+    the run exit non-zero so the failure emails Jack."""
+    if post["type"] != "value" or not pub.get("manychat_sync", False):
+        return
+    field_name = pub.get("manychat_bot_field", "latest_prompt")
+    payload = post.get("prompt_payload", "")
+    if not live:
+        log.info("[DRY RUN] would set ManyChat bot field %r (%d chars): %s",
+                 field_name, len(payload), payload[:80] + ("…" if len(payload) > 80 else ""))
+        return
+    mc = ManyChatClient(common.env("MANYCHAT_API_KEY", required=True))
+    mc.set_bot_field_by_name(field_name, payload)
+    log.info("Synced ManyChat bot field %r with this week's prompt payload.", field_name)
 
 
 def _dry_run(post: dict, urls: list[str], caption: str) -> None:
@@ -147,6 +169,7 @@ def main() -> int:
 
     if not pub.get("enable_publish", False):
         _dry_run(post, urls, caption)
+        _sync_manychat(post, pub, live=False)
         return 0
 
     # ── live publish ─────────────────────────────────────────────────────────
@@ -159,6 +182,17 @@ def main() -> int:
         media_id = _publish_value(ig, post, urls, caption, timeout, interval)
     log.info("Published! media_id=%s", media_id)
     _move_to_published(post, media_id)
+
+    # ManyChat sync happens AFTER the IG post is safely published + moved, so a
+    # ManyChat-side failure never rolls back or blocks the Instagram post — the
+    # post being live is what matters most. It still fails the run LOUDLY
+    # (non-zero exit -> GitHub emails Jack) so a stale DM payload gets caught,
+    # not silently ignored.
+    try:
+        _sync_manychat(post, pub, live=True)
+    except ManyChatError as exc:
+        log.error("ManyChat sync failed (Instagram post is already live and safe): %s", exc)
+        return 1
     return 0
 
 

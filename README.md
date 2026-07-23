@@ -71,11 +71,33 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | `IG_ACCESS_TOKEN` | The long-lived Instagram token from step 2. |
 | `IG_USER_ID` | The Instagram user ID from step 2. |
 | `GH_PAT` | A GitHub token used only to (a) write the refreshed `IG_ACCESS_TOKEN` back into secrets and (b) push approved images to `strumode-ig-assets`. Fine-grained: on **strumode-ig-agent** grant *Secrets: Read/Write* + *Contents: Read/Write*, and on **strumode-ig-assets** grant *Contents: Read/Write*. (Classic fallback: a token with the `repo` scope.) |
+| `MANYCHAT_API_KEY` | Only needed if `publishing.manychat_sync: true`. From ManyChat → **Settings → API → Generate your API Key**. Used for exactly one call a week (`setBotFieldByName`) — never touches flows, subscribers, or sends a message. |
 
 Never paste any of these into chat, code, or config — secrets live only here.
 
 ### 4. Point config at your assets repo
 In `config.yaml`, set `publishing.assets_repo` to `"<you>/strumode-ig-assets"`.
+
+### 5. (Optional) Auto-sync the weekly prompt into ManyChat
+By default, getting each week's DM prompt into ManyChat is still the manual step in the
+Instagram Gameplan's Monday ritual (Step 4.2) — you copy it from the merged PR into the
+ManyChat flow yourself. To automate that instead:
+
+1. In ManyChat: **Settings → Fields → Bot Fields** → create a field named `latest_prompt`
+   (or whatever you set `publishing.manychat_bot_field` to).
+2. In your DM flow's message (the one that currently has the prompt text hardcoded), replace
+   that text with the merge tag for that field instead — ManyChat inserts the merge tag from the
+   same field picker used for custom fields.
+3. Generate a ManyChat API key (**Settings → API**) and add it as the `MANYCHAT_API_KEY` GitHub
+   secret above.
+4. In `config.yaml`, set `publishing.manychat_sync: true`.
+
+From then on, every Thursday's live publish also pushes that week's prompt payload into the
+`latest_prompt` bot field — the ManyChat flow always shows the current week's content with
+nothing to copy-paste. This never touches ManyChat flows/automations themselves, only the one
+field's value. It only runs on a real (non-dry-run) publish, and a failure here never un-publishes
+or blocks the Instagram post — it just fails the workflow run loudly so you get a GitHub email
+and know to paste that week's prompt in by hand instead.
 
 That's it. The first Friday run (or a manual run) will open a draft PR.
 
@@ -128,6 +150,7 @@ refresh_token.py   Monthly: refresh the IG token
 ci_plan.py         Publish-workflow helper (which post today, is it time, go live?)
 common.py          Shared: config, pause switch, DST time guard, draft render/parse
 ig_client.py       Instagram API wrapper (graph.instagram.com)
+manychat_client.py ManyChat API wrapper (api.manychat.com) — optional weekly bot-field sync only
 claude_client.py   Claude API wrapper (structured content generation)
 config.yaml        All non-secret settings + the master switches
 prompts/           content_system_prompt.md + image_style.md (edit these)

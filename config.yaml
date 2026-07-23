@@ -19,6 +19,16 @@ publishing:
   assets_branch: main
   poll_timeout_seconds: 180          # max wait for a media container to reach FINISHED
   poll_interval_seconds: 5
+  # ⚑ ManyChat sync — pushes each Value Day's prompt payload into a ManyChat
+  #   Bot Field so the DM flows (owned in ManyChat, not this repo) can
+  #   reference {{latest_prompt}} instead of Jack pasting it in by hand each
+  #   week. Requires: (1) a Bot Field named manychat_bot_field already created
+  #   in ManyChat (Settings -> Fields -> Bot Fields), (2) that field used as a
+  #   merge tag in the DM flow's message, (3) MANYCHAT_API_KEY GitHub secret.
+  #   Runs only on the Thursday (value) publish, and only when enable_publish
+  #   is also true — never during a dry run.
+  manychat_sync: false
+  manychat_bot_field: "latest_prompt"
 
 # Weekly cadence (informational — the real cron is in .github/workflows/*.yml,
 # which is UTC and DST-guarded to hit these exact Central times) ──────────────
