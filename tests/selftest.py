@@ -19,6 +19,7 @@ import common  # noqa: E402
 import ci_plan  # noqa: E402
 import generate  # noqa: E402
 import images  # noqa: E402
+import manychat_client  # noqa: E402
 import publish  # noqa: E402
 from PIL import Image  # noqa: E402
 
@@ -176,11 +177,65 @@ def test_publish_dry_run() -> None:
             p.unlink(missing_ok=True)
 
 
+def test_manychat_client_offline() -> None:
+    """No network: a fake session captures the request so we can assert the
+    endpoint, body, and auth header without ever hitting api.manychat.com."""
+    calls: list[tuple] = []
+
+    class FakeResp:
+        ok = True
+
+        def json(self):
+            return {"status": "success"}
+
+    class FakeSession:
+        def post(self, url, json=None, headers=None, timeout=None):  # noqa: A002
+            calls.append((url, json, headers))
+            return FakeResp()
+
+    client = manychat_client.ManyChatClient(api_key="fake-key", session=FakeSession())
+    client.set_bot_field_by_name("latest_prompt", "hello world")
+    url, body, headers = calls[0]
+    check("manychat client posts to setBotFieldByName", url == "https://api.manychat.com/fb/page/setBotFieldByName", url)
+    check("manychat client body has field_name/field_value",
+          body == {"field_name": "latest_prompt", "field_value": "hello world"}, str(body))
+    check("manychat client sends Bearer auth header", headers["Authorization"] == "Bearer fake-key")
+
+
+def test_publish_dry_run_value_manychat_sync() -> None:
+    """With manychat_sync on, a dry-run value publish must log the would-be
+    sync and NOT touch the network (no MANYCHAT_API_KEY is set here at all —
+    if the code tried a real call, this test would raise, not just fail)."""
+    d = "2030-04-04"
+    draft = common.QUEUE_DIR / common.draft_filename(d, "value")
+    common.QUEUE_DIR.mkdir(parents=True, exist_ok=True)
+    draft.write_text(_sample_value(d), encoding="utf-8")
+    img = common.QUEUE_DIR / common.value_image_name(d)
+    Image.new("RGB", (1080, 1350), (200, 200, 200)).save(img, format="JPEG")
+    old_argv = sys.argv
+    os.environ["FORCE_RUN"] = "1"
+    cfg = common.load_config()
+    original = cfg["publishing"].get("manychat_sync")
+    cfg["publishing"]["manychat_sync"] = True
+    try:
+        sys.argv = ["publish.py", "value", d]
+        rc = publish.main()
+        check("dry-run value+manychat_sync publish returns 0", rc == 0, str(rc))
+        check("dry-run did NOT move the draft (approval-safe)", draft.exists())
+    finally:
+        cfg["publishing"]["manychat_sync"] = original
+        sys.argv = old_argv
+        os.environ.pop("FORCE_RUN", None)
+        draft.unlink(missing_ok=True)
+        img.unlink(missing_ok=True)
+
+
 def main() -> int:
     print("Strumode IG Agent — offline self-test\n")
     for fn in [test_dates, test_time_guard, test_render_parse_validate, test_image_crop,
                test_compose_prompt, test_system_prompt, test_ci_plan,
-               test_published_move_roundtrip, test_publish_dry_run]:
+               test_published_move_roundtrip, test_publish_dry_run,
+               test_manychat_client_offline, test_publish_dry_run_value_manychat_sync]:
         print(f"{fn.__name__}:")
         fn()
     print()
