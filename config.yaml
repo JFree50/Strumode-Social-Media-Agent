@@ -15,7 +15,7 @@ paused: false                        # true = every workflow exits immediately (
 publishing:
   enable_publish: false              # ⚑ false = DRY RUN (build + log payload, never call IG).
                                      #   Stays false until the seed grid is up. Flip only with Jack.
-  assets_repo: "JFree50/strumode-ig-assets"   # public repo that hosts image URLs for IG
+  assets_repo: "Carsons-Strumode-GIT/strumode-ig-assets"   # public repo that hosts image URLs for IG
   assets_branch: main
   poll_timeout_seconds: 180          # max wait for a media container to reach FINISHED
   poll_interval_seconds: 5
