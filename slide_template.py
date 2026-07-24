@@ -71,7 +71,8 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[str]:
 
 
 def _crop_cover(img: Image.Image, out_w: int, out_h: int) -> Image.Image:
-    """Center-crop `img` to fill out_w x out_h exactly."""
+    """Crop `img` to fill out_w x out_h. Horizontal crops are centered;
+    vertical crops anchor near the TOP (25%) so subjects' heads survive."""
     target = out_w / out_h
     w, h = img.size
     if w / h > target:
@@ -80,7 +81,7 @@ def _crop_cover(img: Image.Image, out_w: int, out_h: int) -> Image.Image:
         img = img.crop((left, 0, left + new_w, h))
     else:
         new_h = int(round(w / target))
-        top = (h - new_h) // 2
+        top = int((h - new_h) * 0.25)
         img = img.crop((0, top, w, top + new_h))
     return img.resize((out_w, out_h), Image.LANCZOS)
 
@@ -156,9 +157,13 @@ def _window_with_art(img: Image.Image, win_top: int, art: Image.Image | None,
                         fill=(246, 247, 250))
     d.text(((W - d.textlength(url, font=fu)) // 2, wy0 + 25), url,
            font=fu, fill=SLATE)
-    # content area
-    ax0, ay0, ax1 = wx0 + 2, wy0 + CHROME_H + 1, wx1 - 2
-    ay1 = wy1 - 2 - (TERMBAR_H if termbar else 0)
+    # content area — the art sits in a MATTE: inset on every side, rounded
+    # corners, never touching the window edges (Carson's spec, 7/23).
+    MATTE = 26
+    ax0 = wx0 + 2 + MATTE
+    ay0 = wy0 + CHROME_H + 1 + MATTE
+    ax1 = wx1 - 2 - MATTE
+    ay1 = wy1 - 2 - (TERMBAR_H if termbar else 0) - MATTE
     aw, ah = ax1 - ax0, ay1 - ay0
     if art is not None:
         pane = _crop_cover(art.convert("RGB"), aw, ah)
@@ -169,15 +174,11 @@ def _window_with_art(img: Image.Image, win_top: int, art: Image.Image | None,
             for x in range(30, aw, 46):
                 pd.ellipse([x - 1, y - 1, x + 1, y + 1], fill=(228, 232, 238))
         pd.text((36, ah - 64), "strumode> loading…", font=mono(24), fill=SLATE)
-    # rounded bottom corners when the art reaches the window bottom
-    mask = Image.new("L", (aw, ah), 255)
-    if not termbar:
-        md = ImageDraw.Draw(Image.new("L", (aw, ah), 0))
-        rmask = Image.new("L", (aw, ah), 0)
-        ImageDraw.Draw(rmask).rounded_rectangle([0, -60, aw, ah], 24, fill=255)
-        mask = rmask
-    img.paste(pane, (ax0, ay0), mask)
+    rmask = Image.new("L", (aw, ah), 0)
+    ImageDraw.Draw(rmask).rounded_rectangle([0, 0, aw, ah], 14, fill=255)
+    img.paste(pane, (ax0, ay0), rmask)
     d = ImageDraw.Draw(img)
+    d.rounded_rectangle([ax0, ay0, ax1, ay1], 14, outline=LINEC, width=2)
     if termbar:
         ty0 = wy1 - 2 - TERMBAR_H
         d.rectangle([ax0, ty0, ax1, wy1 - 26], fill=CARD)
@@ -189,9 +190,9 @@ def _window_with_art(img: Image.Image, win_top: int, art: Image.Image | None,
 
 
 def _footer(d: ImageDraw.ImageDraw, cue: str = "") -> None:
-    d.text((MARGIN, FOOTER_Y),
-           "@strumode · free weekly AI playbook for business owners",
-           font=mono(23), fill=SLATE)
+    handle = ("@strumode · free weekly playbook" if cue else
+              "@strumode · free weekly AI playbook for business owners")
+    d.text((MARGIN, FOOTER_Y), handle, font=mono(23), fill=SLATE)
     if cue:
         f = clash_md(30)
         cw = d.textlength(cue, font=f)
