@@ -194,7 +194,7 @@ def _img_config() -> dict:
 def _paint_art(client: OpenAI, prompt: str, img_cfg: dict) -> Image.Image:
     """Raw square artwork from the image model — destined for INSIDE the window."""
     kwargs = dict(model=img_cfg["image_model"], prompt=prompt,
-                  size="1024x1024", quality=img_cfg["quality"], n=1)
+                  size="1536x1024", quality=img_cfg["quality"], n=1)  # landscape ≈ the matte pane ratio — minimal crop, heads safe
     try:
         resp = client.images.generate(output_format="jpeg", **kwargs)
     except TypeError:
