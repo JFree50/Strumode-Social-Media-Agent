@@ -191,27 +191,68 @@ def _img_config() -> dict:
                                                cfg["brand"]["gold"])}
 
 
-def process_draft_template(path, img_cfg: dict) -> int:
+def _paint_art(client: OpenAI, prompt: str, img_cfg: dict) -> Image.Image:
+    """Raw square artwork from the image model — destined for INSIDE the window."""
+    kwargs = dict(model=img_cfg["image_model"], prompt=prompt,
+                  size="1024x1024", quality=img_cfg["quality"], n=1)
+    try:
+        resp = client.images.generate(output_format="jpeg", **kwargs)
+    except TypeError:
+        resp = client.images.generate(**kwargs)
+    raw = base64.b64decode(resp.data[0].b64_json)
+    return Image.open(io.BytesIO(raw)).convert("RGB")
+
+
+def process_draft_template(path, client: OpenAI | None, img_cfg: dict) -> int:
     """Brand-template mode (default since 7/23/2026, approved by Carson + Jack):
-    every slide is rendered deterministically by slide_template.py — the white
-    browser-window design. No image model, no cost, no drift."""
+    the model paints each slide's artwork, and slide_template.py frames it
+    inside the white browser window with the exact words stamped above it.
+    Without an OpenAI client the frame renders with a branded fallback pane —
+    the pipeline never crashes on a missing key."""
     import slide_template
     post = common.parse_draft(path)
     if post["type"] == "story":
-        renders = slide_template.render_story_slides(post)
+        slides = post["slides"]
+        n = len(slides)
+        jobs = []
+        for i, s in enumerate(slides):
+            if i == 0:
+                jobs.append(("cover", s["text"], "A Strumode story", s["image_prompt"]))
+            elif i == n - 1:
+                jobs.append(("final", s["text"], f"{i + 1:02d} / {n:02d}", s["image_prompt"]))
+            else:
+                jobs.append(("body", s["text"], f"{i + 1:02d} / {n:02d}", s["image_prompt"]))
     elif post["type"] == "value":
-        renders = [slide_template.render_value_slide(post)]
+        caption = post.get("caption", "").strip()
+        first = caption.split("\n")[0].strip()
+        for stop in (". ", "? ", "! "):
+            if stop in first:
+                first = first.split(stop)[0] + stop.strip()
+                break
+        if len(first) > 90:
+            first = first[:87].rstrip() + "…"
+        jobs = [("value", first or "This week's free prompt is here.",
+                 "Value day / the free prompt", post["image_prompt"])]
     else:
         log.warning("Skipping %s — unknown type.", path.name)
         return 0
+
     made = 0
-    for img, fname in zip(renders, post["image_files"]):
+    for (kind, text, kicker, subject), fname in zip(jobs, post["image_files"]):
         out_path = path.parent / fname
         if out_path.exists():
             log.info("Exists, skipping %s", fname)
             continue
+        art = None
+        if client is not None and subject.strip():
+            art = _paint_art(client, _compose(subject, post["style_override"]), img_cfg)
+        cmd = ("send this week's prompt" if kind == "value"
+               else "run business --hands-off")
+        img = slide_template.render_slide(kind, text, art=art, kicker=kicker,
+                                          terminal_cmd=cmd)
         img.save(out_path, format="JPEG", quality=92)
-        log.info("Saved %s  (brand template)", fname)
+        log.info("Saved %s  (brand template%s)", fname,
+                 ", model art" if art is not None else ", fallback pane")
         made += 1
     return made
 
@@ -257,17 +298,18 @@ def main() -> int:
         log.info("No drafts in queue — nothing to illustrate.")
         return 0
 
-    # "template" (default) = deterministic brand renderer, no API cost.
-    # "paint" = legacy gpt-image pipeline, kept for one-off art experiments.
+    # "template" (default) = model art framed inside the brand window.
+    # "paint" = legacy full-bleed gpt-image pipeline.
     mode = common.load_config()["image"].get("mode", "template")
-    client = OpenAI() if mode == "paint" else None
+    import os
+    client = OpenAI() if (mode == "paint" or os.environ.get("OPENAI_API_KEY")) else None
 
     total = 0
     for path in drafts:
         if mode == "paint":
             total += process_draft(path, client, img_cfg)
         else:
-            total += process_draft_template(path, img_cfg)
+            total += process_draft_template(path, client, img_cfg)
     log.info("Generated %d image(s) [%s mode].", total, mode)
     return 0
 
