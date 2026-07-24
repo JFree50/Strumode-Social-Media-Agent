@@ -1,0 +1,32 @@
+# Regenerate queue images on the branch this is dispatched against.
+# Use after a template/style change: delete the old .jpgs on the drafts branch,
+# then run this against that branch — images.py re-renders every missing image
+# (model art framed in the brand template) and commits them back.
+name: Regenerate images
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Render images
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          FORCE_RUN: "1"
+        run: python images.py
+      - name: Commit rendered images
+        run: |
+          git config user.name "strumode-ig-agent"
+          git config user.email "agent@strumode.com"
+          git add content/queue/*.jpg || true
+          git diff --cached --quiet || git commit -m "Re-render queue images (brand template)"
+          git push
