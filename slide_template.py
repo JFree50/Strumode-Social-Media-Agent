@@ -144,19 +144,18 @@ def _window_with_art(img: Image.Image, win_top: int, art: Image.Image | None,
     sh = sh.filter(ImageFilter.GaussianBlur(12))
     img.paste(sh, (0, 0), sh)
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([wx0, wy0, wx1, wy1], 26, fill=CARD, outline=LINEC, width=2)
+    d.rounded_rectangle([wx0, wy0, wx1, wy1], 26, fill=INK, outline=(10, 15, 26), width=2)
     # chrome
-    d.line([wx0 + 1, wy0 + CHROME_H, wx1 - 1, wy0 + CHROME_H], fill=LINEC, width=2)
+    d.line([wx0 + 1, wy0 + CHROME_H, wx1 - 1, wy0 + CHROME_H], fill=(46, 60, 86), width=2)
     for cxx in (wx0 + 40, wx0 + 70, wx0 + 100):
-        d.ellipse([cxx - 8, wy0 + 27, cxx + 8, wy0 + 43],
-                  outline=(214, 217, 225), width=2)
+        d.ellipse([cxx - 8, wy0 + 27, cxx + 8, wy0 + 43], fill=(236, 240, 247))
     fu = mono(20)
     pw = max(280, int(d.textlength(url, font=fu)) + 64)
     d.rounded_rectangle([(wx0 + wx1) // 2 - pw // 2, wy0 + 16,
                          (wx0 + wx1) // 2 + pw // 2, wy0 + 54], 19,
                         fill=(246, 247, 250))
     d.text(((W - d.textlength(url, font=fu)) // 2, wy0 + 25), url,
-           font=fu, fill=SLATE)
+           font=fu, fill=(90, 107, 133))
     # content area — the art sits in a MATTE: inset on every side, rounded
     # corners, never touching the window edges (Carson's spec, 7/23).
     MATTE = 26
@@ -178,15 +177,15 @@ def _window_with_art(img: Image.Image, win_top: int, art: Image.Image | None,
     ImageDraw.Draw(rmask).rounded_rectangle([0, 0, aw, ah], 14, fill=255)
     img.paste(pane, (ax0, ay0), rmask)
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([ax0, ay0, ax1, ay1], 14, outline=LINEC, width=2)
+    d.rounded_rectangle([ax0, ay0, ax1, ay1], 14, outline=(52, 68, 96), width=2)
     if termbar:
         ty0 = wy1 - 2 - TERMBAR_H
-        d.rectangle([ax0, ty0, ax1, wy1 - 26], fill=CARD)
-        d.rounded_rectangle([wx0, wy0, wx1, wy1], 26, outline=LINEC, width=2)
-        d.line([ax0 + 30, ty0 + 6, ax1 - 30, ty0 + 6], fill=LINEC, width=2)
-        d.text((ax0 + 34, ty0 + 20), f"strumode> {termbar}", font=mono(23), fill=INK)
+        d.rectangle([ax0, ty0, ax1, wy1 - 26], fill=INK)
+        d.rounded_rectangle([wx0, wy0, wx1, wy1], 26, outline=(10, 15, 26), width=2)
+        d.line([ax0 + 30, ty0 + 6, ax1 - 30, ty0 + 6], fill=(46, 60, 86), width=2)
+        d.text((ax0 + 34, ty0 + 20), f"strumode> {termbar}", font=mono(23), fill=(214, 224, 238))
         okx = ax0 + 34 + d.textlength(f"strumode> {termbar}  ", font=mono(23))
-        d.text((okx, ty0 + 20), "ok", font=monob(23), fill=GREEN)
+        d.text((okx, ty0 + 20), "ok", font=monob(23), fill=(93, 202, 165))
 
 
 def _footer(d: ImageDraw.ImageDraw, cue: str = "") -> None:
