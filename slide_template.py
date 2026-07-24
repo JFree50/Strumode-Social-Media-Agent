@@ -189,9 +189,9 @@ def _window_with_art(img: Image.Image, win_top: int, art: Image.Image | None,
 
 
 def _footer(d: ImageDraw.ImageDraw, cue: str = "") -> None:
-    d.text((MARGIN, FOOTER_Y),
-           "@strumode · free weekly AI playbook for business owners",
-           font=mono(23), fill=SLATE)
+    handle = ("@strumode · free weekly playbook" if cue else
+              "@strumode · free weekly AI playbook for business owners")
+    d.text((MARGIN, FOOTER_Y), handle, font=mono(23), fill=SLATE)
     if cue:
         f = clash_md(30)
         cw = d.textlength(cue, font=f)
