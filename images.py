@@ -191,6 +191,31 @@ def _img_config() -> dict:
                                                cfg["brand"]["gold"])}
 
 
+def process_draft_template(path, img_cfg: dict) -> int:
+    """Brand-template mode (default since 7/23/2026, approved by Carson + Jack):
+    every slide is rendered deterministically by slide_template.py — the white
+    browser-window design. No image model, no cost, no drift."""
+    import slide_template
+    post = common.parse_draft(path)
+    if post["type"] == "story":
+        renders = slide_template.render_story_slides(post)
+    elif post["type"] == "value":
+        renders = [slide_template.render_value_slide(post)]
+    else:
+        log.warning("Skipping %s — unknown type.", path.name)
+        return 0
+    made = 0
+    for img, fname in zip(renders, post["image_files"]):
+        out_path = path.parent / fname
+        if out_path.exists():
+            log.info("Exists, skipping %s", fname)
+            continue
+        img.save(out_path, format="JPEG", quality=92)
+        log.info("Saved %s  (brand template)", fname)
+        made += 1
+    return made
+
+
 def process_draft(path, client: OpenAI, img_cfg: dict) -> int:
     post = common.parse_draft(path)
     if post["type"] == "story":
@@ -226,17 +251,24 @@ def main() -> int:
     elif not common.should_run("Friday", 9, log):
         return 0
 
-    client = OpenAI()
     img_cfg = _img_config()
     drafts = [single] if single else sorted(common.QUEUE_DIR.glob("*.md"))
     if not drafts:
         log.info("No drafts in queue — nothing to illustrate.")
         return 0
 
+    # "template" (default) = deterministic brand renderer, no API cost.
+    # "paint" = legacy gpt-image pipeline, kept for one-off art experiments.
+    mode = common.load_config()["image"].get("mode", "template")
+    client = OpenAI() if mode == "paint" else None
+
     total = 0
     for path in drafts:
-        total += process_draft(path, client, img_cfg)
-    log.info("Generated %d image(s).", total)
+        if mode == "paint":
+            total += process_draft(path, client, img_cfg)
+        else:
+            total += process_draft_template(path, img_cfg)
+    log.info("Generated %d image(s) [%s mode].", total, mode)
     return 0
 
 
