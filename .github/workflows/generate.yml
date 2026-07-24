@@ -36,6 +36,16 @@ jobs:
           AGENT_PAUSED: ${{ vars.AGENT_PAUSED }}
         run: python generate.py
 
+      # Proofreading gate: spelling, grammar, complete sentences — auto-fixes
+      # via Claude and FAILS the run on unresolved problems, so a PR (and its
+      # email) never ships with errors. Runs before images so corrected words
+      # are what get stamped on the slides.
+      - name: Proofread & fix drafts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AGENT_PAUSED: ${{ vars.AGENT_PAUSED }}
+        run: python review.py
+
       # continue-on-error so already-paid-for images are still committed to a
       # PR even if a later image fails (billing limit, API hiccup). The final
       # step re-fails the run so the failure is still loud.

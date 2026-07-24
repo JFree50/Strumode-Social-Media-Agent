@@ -243,15 +243,18 @@ def render_story_slides(post: dict, arts: list[Image.Image | None]) -> list[Imag
 
 
 def render_value_slide(post: dict, art: Image.Image | None) -> Image.Image:
-    """Thursday value-day image. Headline = first sentence of the caption."""
-    caption = post.get("caption", "").strip()
-    first = caption.split("\n")[0].strip()
-    for stop in (". ", "? ", "! "):
-        if stop in first:
-            first = first.split(stop)[0] + stop.strip()
-            break
-    if len(first) > 90:
-        first = first[:87].rstrip() + "…"
-    return render_slide("value", first or "This week's free prompt is here.",
+    """Thursday value-day image. Headline = the reviewed `image_headline`
+    front-matter (a complete sentence written by review.py's proofread pass);
+    falls back to the caption's first full sentence — never a chopped string."""
+    head = str(post.get("_frontmatter", {}).get("image_headline", "")).strip()
+    if not head:
+        caption = post.get("caption", "").strip()
+        first = caption.split("\n")[0].strip()
+        for stop in (". ", "? ", "! "):
+            if stop in first:
+                first = first.split(stop)[0] + stop.strip()
+                break
+        head = first
+    return render_slide("value", head or "This week's free prompt is here.",
                         art=art, kicker="Value day / the free prompt",
                         terminal_cmd="send this week's prompt")

@@ -19,7 +19,7 @@ touch DMs (ManyChat owns that) and never does anything involving fake engagement
 
 | When (Central) | Workflow | What happens |
 |---|---|---|
-| **Fri 9:00 am** | `generate.yml` | Claude writes next week's Story (Tue) + Value (Thu) posts → GPT Image draws them → a **PR opens**. |
+| **Fri 9:00 am** | `generate.yml` | Claude writes next week's Story (Tue) + Value (Thu) posts → **review.py proofreads & auto-fixes** (spelling, grammar, complete sentences — unresolved errors FAIL the run, so a flawed PR never emails out) → the art is drawn and framed in the brand template → a **PR opens**. |
 | **you, anytime** | *(the gate)* | You review the PR, edit anything, and **merge** — merging is the approval to publish. |
 | **Tue 11:00 am** | `publish.yml` | Publishes the merged Story Day carousel. |
 | **Thu 11:00 am** | `publish.yml` | Publishes the merged Value Day post. |
