@@ -13,7 +13,7 @@ account:
 # ⚑ MASTER SWITCHES ───────────────────────────────────────────────────────────
 paused: false                        # true = every workflow exits immediately (full stop)
 publishing:
-  enable_publish: false              # ⚑ false = DRY RUN (build + log payload, never call IG).
+  enable_publish: true              # ⚑ false = DRY RUN (build + log payload, never call IG).
                                      #   Stays false until the seed grid is up. Flip only with Jack.
   assets_repo: "Carsons-Strumode-GIT/strumode-ig-assets"   # public repo that hosts image URLs for IG
   assets_branch: main
@@ -27,7 +27,7 @@ publishing:
   #   merge tag in the DM flow's message, (3) MANYCHAT_API_KEY GitHub secret.
   #   Runs only on the Thursday (value) publish, and only when enable_publish
   #   is also true — never during a dry run.
-  manychat_sync: false
+  manychat_sync: true
   manychat_bot_field: "latest_prompt"
 
 # Weekly cadence (informational — the real cron is in .github/workflows/*.yml,
