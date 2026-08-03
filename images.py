@@ -293,7 +293,10 @@ def main() -> int:
         return 0
 
     img_cfg = _img_config()
-    drafts = [single] if single else sorted(common.QUEUE_DIR.glob("*.md"))
+    # iter_drafts(), NOT a raw glob: review.py writes .review-report.md into this
+    # very directory in the step immediately before this one, and pathlib's glob
+    # matches dotfiles — so a raw glob picks the report up as a "draft" every run.
+    drafts = [single] if single else common.iter_drafts(common.QUEUE_DIR)
     if not drafts:
         log.info("No drafts in queue — nothing to illustrate.")
         return 0

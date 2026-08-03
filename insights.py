@@ -35,7 +35,9 @@ def save_metrics(data: dict) -> None:
 
 def _published_posts() -> list[dict]:
     posts = []
-    for path in sorted(common.PUBLISHED_DIR.glob("*.md")):
+    # iter_drafts() so a stray README/report in the published folder can never
+    # take down the insights run. See common.iter_drafts().
+    for path in common.iter_drafts(common.PUBLISHED_DIR):
         post = common.parse_draft(path)
         if post.get("media_id"):
             posts.append(post)
