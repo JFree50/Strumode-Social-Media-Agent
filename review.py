@@ -34,6 +34,13 @@ import common
 log = common.get_logger("review")
 
 TERMINALS = (".", "!", "?", '."', '!"', '?"', ":", "—")
+
+# NOTE: this report lives INSIDE the directory we scan. That is only safe
+# because draft discovery goes through common.iter_drafts(), which matches the
+# canonical `YYYY-MM-DD_(story|value).md` filename and nothing else.
+# Do NOT replace that call with a bare `QUEUE_DIR.glob("*.md")` — pathlib's glob
+# matches dotfiles, so this very file came back as a "draft" (sorted first, since
+# '.' < '0') and killed every run with "Draft is missing YAML front-matter."
 REPORT = common.QUEUE_DIR / ".review-report.md"
 
 
@@ -59,6 +66,7 @@ def _sentence_problems(label: str, text: str) -> list[str]:
 
 def structural_check(post: dict) -> list[str]:
     problems: list[str] = []
+
     if post["type"] == "story":
         for i, s in enumerate(post["slides"], 1):
             problems += _sentence_problems(f"slide {i}", s["text"])
@@ -66,6 +74,7 @@ def structural_check(post: dict) -> list[str]:
             problems.append(
                 f"alt-text count ({len(post['alt_texts'])}) != slide count ({len(post['slides'])})")
         problems += _sentence_problems("hook", post.get("hook", ""))
+
     elif post["type"] == "value":
         if not post.get("prompt_payload", "").strip():
             problems.append("value draft: empty ManyChat prompt payload")
@@ -76,11 +85,14 @@ def structural_check(post: dict) -> list[str]:
             problems += _sentence_problems("image_headline", str(head))
             if len(str(head)) > 80:
                 problems.append("image_headline exceeds 80 chars")
+
     problems += _sentence_problems("caption (last line)",
                                    post.get("caption", "").strip().split("\n")[-1])
+
     for tag in post.get("hashtags", []):
         if not re.fullmatch(r"#\w+", tag):
             problems.append(f"malformed hashtag: {tag}")
+
     return problems
 
 
@@ -96,9 +108,12 @@ Rules:
   sentence with closing punctuation. American English.
 - Preserve the exact markdown structure, section names, ordering, and every
   front-matter field. Do not add or remove slides. Do not change dates/ids.
-- If type is value and front-matter lacks `image_headline`, add it after the
-  `media_type` line: a complete, punchy, ≤80-character sentence summarizing the
-  post for the image (not a truncation of anything).
+- The draft MUST still open with a '---' YAML front-matter block. Never wrap your
+  answer in markdown code fences and never add commentary before the '---'.
+- If type is value and front-matter has no `image_headline` line, or has one that
+  is empty, fill it in: a complete, punchy, ≤80-character sentence summarizing the
+  post for the image (not a truncation of anything). If the headline contains a
+  colon, wrap the whole value in double quotes so the YAML stays valid.
 - If nothing needs fixing, return the draft unchanged."""
 
 
@@ -136,10 +151,32 @@ def review_draft(path) -> tuple[bool, list[str]]:
     """Returns (ok, report_lines). ok=False → unfixable structural problem."""
     report = [f"### {path.name}"]
     raw = path.read_text(encoding="utf-8")
-    post = common.parse_draft(path)
+
+    # Never let one unreadable file abort the whole run with a bare traceback.
+    # Report WHICH file and WHAT it looks like, then carry on to the others.
+    try:
+        post = common.parse_draft(path)
+    except ValueError as exc:
+        head = "\n".join(raw.splitlines()[:15])
+        log.error("Could not parse %s: %s\n--- first 15 lines ---\n%s", path.name, exc, head)
+        report.append(f"- ❌ UNPARSEABLE: {exc}")
+        report.append("- first 15 lines:")
+        report += [f"      {line}" for line in raw.splitlines()[:15]]
+        return False, report
+
     problems = structural_check(post)
 
     fixed = claude_fix(raw)
+
+    # Vet the rewrite BEFORE overwriting a known-good file. A model that drops the
+    # front-matter or fences its answer must not be able to corrupt the draft.
+    if fixed and not common.is_wellformed_draft_text(fixed):
+        log.warning("Discarding Claude's proofread of %s — the result lost its front-matter.",
+                    path.name)
+        report.append("- ⚠️ Claude's proofread was discarded (it broke the front-matter); "
+                      "structural checks only.")
+        fixed = None
+
     if fixed and fixed.strip() != raw.strip():
         path.write_text(fixed if fixed.endswith("\n") else fixed + "\n",
                         encoding="utf-8")
@@ -156,6 +193,7 @@ def review_draft(path) -> tuple[bool, list[str]]:
         report.append("- ❌ UNRESOLVED problems:")
         report += [f"  - {p}" for p in remaining]
         return False, report
+
     report.append("- ✅ structure clean: complete sentences, balanced punctuation")
     return True, report
 
@@ -164,11 +202,17 @@ def main() -> int:
     if common.is_paused():
         log.info("Agent is paused — skipping review.")
         return 0
+
     single = common.Path(sys.argv[1]) if len(sys.argv) > 1 else None
-    drafts = [single] if single else sorted(common.QUEUE_DIR.glob("*.md"))
+    # iter_drafts() — NOT a raw glob. See the REPORT comment at the top of this file.
+    drafts = [single] if single else common.iter_drafts(common.QUEUE_DIR)
+
     if not drafts:
         log.info("No drafts to review.")
         return 0
+
+    log.info("Reviewing %d draft(s): %s", len(drafts), ", ".join(p.name for p in drafts))
+
     all_ok, lines = True, ["## Proofread report (review.py)"]
     for path in drafts:
         ok, rep = review_draft(path)
@@ -176,10 +220,14 @@ def main() -> int:
         lines += rep
         for line in rep:
             log.info(line)
+
+    REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
     if not all_ok:
         log.error("Review FAILED — fix the problems above; no PR should ship with errors.")
         return 1
+
     log.info("Review passed — drafts are clean.")
     return 0
 
