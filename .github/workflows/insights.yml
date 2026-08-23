@@ -2,9 +2,10 @@ name: Weekly insights
 
 # Monday 8am America/Chicago (both candidate UTC hours; Python time-guard picks one).
 on:
-  schedule:
-    - cron: "0 13 * * 1"
-    - cron: "0 14 * * 1"
+  # PAUSED 2026-08-23 per Carson (founder-led content push). Uncomment to resume.
+  # schedule:
+  #   - cron: "0 13 * * 1"
+  #   - cron: "0 14 * * 1"
   workflow_dispatch: {}
 
 permissions:

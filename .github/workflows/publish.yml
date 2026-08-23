@@ -4,11 +4,12 @@ name: Publish post
 # hours fire; the Python time-guard (via ci_plan.py) lets only the 11am-CT run
 # proceed. Manual runs bypass the guard and take the inputs below.
 on:
-  schedule:
-    - cron: "0 16 * * 2"
-    - cron: "0 17 * * 2"
-    - cron: "0 16 * * 4"
-    - cron: "0 17 * * 4"
+  # PAUSED 2026-08-23 per Carson (founder-led content push). Uncomment to resume.
+  # schedule:
+  #   - cron: "0 16 * * 2"
+  #   - cron: "0 17 * * 2"
+  #   - cron: "0 16 * * 4"
+  #   - cron: "0 17 * * 4"
   workflow_dispatch:
     inputs:
       post_type:

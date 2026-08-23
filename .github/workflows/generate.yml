@@ -4,9 +4,10 @@ name: Generate weekly posts
 # so we fire at BOTH candidate UTC hours (CST 15:00, CDT 14:00) and the Python
 # time-guard lets only the 9am-Central run proceed; the other exits cleanly.
 on:
-  schedule:
-    - cron: "0 14 * * 5"
-    - cron: "0 15 * * 5"
+  # PAUSED 2026-08-23 per Carson (founder-led content push). Uncomment to resume.
+  # schedule:
+  #   - cron: "0 14 * * 5"
+  #   - cron: "0 15 * * 5"
   workflow_dispatch: {}   # manual run bypasses the time-guard (FORCE via event name)
 
 permissions:
